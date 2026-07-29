@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pageport (Slant) | Dyno Capacity Analysis</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --card:#ffffff;
+    --ink:#111111;
+    --muted:#666666;
+    --line:#e8e8e8;
+    --soft:#f7f7f7;
+    --soft2:#fcfcfc;
+    --yellow:#e8ff1a;
+    --yellow2:#fff9b0;
+    --yellow3:#dff04f;
+    --charcoal:#222222;
+    --gray:#7a7a7a;
+    --shadow:0 1px 2px rgba(0,0,0,.05), 0 12px 34px rgba(0,0,0,.04);
+    --radius:28px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  body{min-height:100vh}
+  .wrap{max-width:1540px;margin:0 auto;padding:24px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:900;font-size:28px;letter-spacing:-.04em}
+  .navpill{border:1px solid var(--line);border-radius:999px;padding:10px 14px;font-weight:800;font-size:13px;background:#fff}
+  .hero,.panel,.footer{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .hero{padding:34px 30px 28px}
+  .eyebrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .pill{border:1px solid #dcdcdc;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:800;background:#fff}
+  .pill.yellow{background:var(--yellow);border-color:#d8e800}
+  .title{font-size:clamp(34px,4.2vw,58px);line-height:1.02;font-weight:900;letter-spacing:-.05em;margin:16px 0 14px;max-width:980px}
+  .sub{max-width:1060px;font-size:clamp(15px,1.35vw,18px);line-height:1.55;color:var(--muted)}
+  .sub strong{color:var(--ink)}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .seg{border:1px solid #d8d8d8;background:#fff;color:var(--ink);border-radius:999px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;transition:.15s ease}
+  .seg:hover{transform:translateY(-1px)}
+  .seg.active{background:var(--ink);border-color:var(--ink);color:#fff}
+  .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:20px}
+  .metric{border:1px solid var(--line);background:#fff;border-radius:22px;padding:16px 16px 15px;min-height:110px}
+  .metric.accent{background:linear-gradient(180deg,#fffef2,#ffffff)}
+  .metric .label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:900}
+  .metric .val{margin-top:10px;font-size:31px;line-height:1;font-weight:900}
+  .metric .note{margin-top:6px;font-size:12px;color:var(--muted)}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:22px}
+  .panel{padding:20px}
+  .panel h2{margin:0;font-size:clamp(22px,2.2vw,30px);line-height:1.08;letter-spacing:-.04em}
+  .panel .desc{margin:8px 0 14px;color:var(--muted);line-height:1.5}
+  .kicker{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+  .right-callout{font-size:12px;font-weight:900;color:var(--muted)}
+  .right-callout b{color:var(--ink)}
+  .chart-box{position:relative;width:100%;height:362px;border:1px solid #ececec;border-radius:22px;background:#fff;overflow:hidden}
+  .tooltip{position:absolute;pointer-events:none;transform:translate(-50%,-110%);background:#111;color:#fff;border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.35;opacity:0;transition:opacity .08s ease;box-shadow:0 14px 30px rgba(0,0,0,.18);max-width:220px;z-index:5}
+  .tooltip.show{opacity:1}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:10px;color:#444;font-size:13px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:7px;vertical-align:middle}
+  .dot.line{width:14px;height:3px;border-radius:999px}
+  .note-box{margin-top:14px;background:var(--soft);border:1px solid var(--line);border-radius:18px;padding:13px 14px;color:#555;font-size:14px;line-height:1.5}
+  .scenario-strip{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .scenario-card{border-radius:22px;border:1px solid var(--line);background:#fff;padding:16px 16px 15px;transition:.15s ease}
+  .scenario-card.current{border-color:#111;background:#fff}
+  .scenario-card.proposed{border-color:#d8d8d8;background:#fffef1}
+  .scenario-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .scenario-title{margin:0;font-size:22px;line-height:1.1;font-weight:900;letter-spacing:-.03em}
+  .badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}
+  .badge.current{background:#111;color:#fff}
+  .badge.proposed{background:var(--yellow);color:#111}
+  .scenario-sub{color:var(--muted);font-size:13px;margin-top:5px}
+  .scenario-card ul{margin:12px 0 0;padding:0 0 0 18px;color:#333;line-height:1.75;font-size:14px}
+  .scenario-foot{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;color:#555;font-size:14px;line-height:1.5}
+  .table-panel{margin-top:20px;padding:18px}
+  .table-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .table-head h2{margin:0;font-size:clamp(22px,2.2vw,30px);line-height:1.08;letter-spacing:-.04em}
+  .table-head .desc{margin:8px 0 0;color:var(--muted);line-height:1.5}
+  .table-wrap{overflow:auto;margin-top:14px;border:1px solid #ececec;border-radius:20px}
+  table{width:100%;min-width:1060px;border-collapse:separate;border-spacing:0}
+  thead th{background:#111;color:#fff;font-size:13px;text-align:right;padding:14px 12px;white-space:nowrap}
+  thead th:first-child{text-align:left}
+  tbody td{padding:14px 12px;border-bottom:1px solid var(--line);font-size:14px;text-align:right;background:#fff;white-space:nowrap}
+  tbody tr:nth-child(even) td{background:#fafafa}
+  tbody td:first-child{text-align:left;font-weight:800}
+  tbody tr.total td{background:linear-gradient(180deg,#fffde8,#fff9bf) !important;font-weight:900;border-bottom:none}
+  .s1txt{color:#111}
+  .s2txt{color:#111}
+  .savtxt{color:#0f6b32;font-weight:900}
+  .footer{margin-top:20px;padding:18px 20px;border-radius:28px;background:linear-gradient(90deg,var(--yellow),#fffde8)}
+  .footer strong{color:#111}
+  .subtle{color:#666}
+  .metric-grid-note{font-size:12px;color:#666;margin-top:3px}
+  svg text{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  @media (max-width: 1100px){
+    .metrics,.grid-2,.scenario-strip{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width: 820px){
+    .wrap{padding:16px}
+    .metrics,.grid-2,.scenario-strip{grid-template-columns:1fr}
+    .hero,.panel,.footer{border-radius:22px}
+    .chart-box{height:340px}
+    .title{font-size:30px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand"><span>Pageport (Slant)</span></div>
+      <div class="navpill">Dyno capacity analysis</div>
+    </div>
+
+    <div class="hero">
+      <div class="eyebrow">
+        <span class="pill">Executive brief</span>
+        <span class="pill">July 2026 through January 2027</span>
+      </div>
+      <div class="title">Aligning Dyno Capacity with Actual Growth</div>
+      <div class="sub">
+        July is tracking to <strong id="projJulyText">~183 dynos</strong> based on <strong>112.21 dynos through July 19</strong>. 
+        The current plan includes <strong>100 dynos at $19.75</strong> and charges <strong>$23.70 EOD</strong> for every dyno over 100. 
+        The proposal increases included capacity to <strong>160 dynos at $18.75</strong> and lowers EOD to <strong>$22.50</strong> through the January 2027 renewal.
+      </div>
+
+      <div class="controls" aria-label="Growth assumption selector">
+        <button class="seg" data-growth="0.03">Conservative 3%</button>
+        <button class="seg active" data-growth="0.05">Base 5%</button>
+        <button class="seg" data-growth="0.08">Aggressive 8%</button>
+      </div>
+
+      <div class="metrics" id="metrics"></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="kicker">
+          <div>
+            <h2>Historical usage trend</h2>
+            <div class="desc">YTD statement consumption, with July shown as month-to-date through July 19.</div>
+          </div>
+          <div class="right-callout">Y-axis: <b>Dynos</b></div>
+        </div>
+        <div class="chart-box" id="historyChartBox">
+          <div class="tooltip" id="historyTip"></div>
+          <svg id="historyChart" viewBox="0 0 760 360" width="100%" height="100%" role="img" aria-label="Historical usage chart"></svg>
+        </div>
+        <div class="legend">
+          <span><span class="dot" style="background:#111"></span>Actual (Feb-Jun)</span>
+          <span><span class="dot line" style="background:var(--yellow)"></span>Projected (Jul-Jan)</span>
+          <span><span class="dot" style="background:var(--yellow)"></span>Jul* = month-to-date</span>
+        </div>
+        <div class="note-box"><strong>Trend note:</strong> usage has climbed steadily through the spring and is already at <strong>112.21 dynos</strong> by July 19, implying a full-month finish above the current 100-dyno pool.</div>
+      </div>
+
+      <div class="panel">
+        <div class="kicker">
+          <div>
+            <h2>Usage vs. included dynos</h2>
+            <div class="desc">Projected dynos compared with the current 100-dyno structure and the proposed 160-dyno structure.</div>
+          </div>
+          <div class="right-callout">Y-axis: <b>Dynos</b></div>
+        </div>
+        <div class="chart-box" id="capacityChartBox">
+          <div class="tooltip" id="capacityTip"></div>
+          <svg id="capacityChart" viewBox="0 0 760 360" width="100%" height="100%" role="img" aria-label="Projected dynos versus included capacity chart"></svg>
+        </div>
+        <div class="legend" id="capacityLegend"></div>
+        <div class="scenario-strip">
+          <div class="scenario-card current" id="card1">
+            <div class="scenario-top">
+              <div>
+                <h3 class="scenario-title">Scenario 1: do nothing</h3>
+                <div class="scenario-sub">Current 100-dyno structure through January 2027.</div>
+              </div>
+              <span class="badge current">Current</span>
+            </div>
+            <ul>
+              <li>100 dynos at $19.75 per month</li>
+              <li>EOD overage: $23.70 per dyno over 100</li>
+              <li>Projected Jul-Jan spend: <b id="s1TotalText">$32,564</b></li>
+            </ul>
+            <div class="scenario-foot" id="s1Foot">By January, projected usage is well above the included pool each month.</div>
+          </div>
+          <div class="scenario-card proposed" id="card2">
+            <div class="scenario-top">
+              <div>
+                <h3 class="scenario-title">Scenario 2: proposed restructure</h3>
+                <div class="scenario-sub">160-dyno package through the January 2027 renewal.</div>
+              </div>
+              <span class="badge proposed">Proposed</span>
+            </div>
+            <ul>
+              <li>160 dynos at $18.75 per month</li>
+              <li>Lower EOD overage: $22.50 per dyno over 160</li>
+              <li>Projected Jul-Jan spend: <b id="s2TotalText">$29,340</b></li>
+            </ul>
+            <div class="scenario-foot" id="s2Foot">Adds 60 dynos at the discounted rate and lowers the overage rate at the same time.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel table-panel">
+      <div class="table-head">
+        <div>
+          <h2>Monthly cost projection by scenario</h2>
+          <div class="desc">Projected dynos and spend from July through January. All values update with the growth selector above.</div>
+        </div>
+        <div class="right-callout">Current base: <b>100 @ $19.75</b> / Proposed base: <b>160 @ $18.75</b></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>Jul '26</th>
+              <th>Aug '26</th>
+              <th>Sep '26</th>
+              <th>Oct '26</th>
+              <th>Nov '26</th>
+              <th>Dec '26</th>
+              <th>Jan '27</th>
+              <th>Total (Jul-Jan)</th>
+            </tr>
+          </thead>
+          <tbody id="costTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer"><strong>Recommendation:</strong> restructure now to align contracted capacity with projected demand while lowering both the base dyno rate and the overage rate through the January 2027 renewal.</div>
+  </div>
+
+<script>
+(function(){
+  const currentContract = { included: 100, base: 19.75, eod: 23.70 };
+  const proposedContract = { included: 160, base: 18.75, eod: 22.50 };
+  const julyMTD = 112.21;
+  const julyDays = 19;
+  const julyBaseProjection = julyMTD / julyDays * 31;
+  const monthLabels = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan'];
+
+  const els = {
+    metrics: document.getElementById('metrics'),
+    historyChart: document.getElementById('historyChart'),
+    capacityChart: document.getElementById('capacityChart'),
+    historyBox: document.getElementById('historyChartBox'),
+    capacityBox: document.getElementById('capacityChartBox'),
+    historyTip: document.getElementById('historyTip'),
+    capacityTip: document.getElementById('capacityTip'),
+    costTableBody: document.getElementById('costTableBody'),
+    projJulyText: document.getElementById('projJulyText'),
+    s1TotalText: document.getElementById('s1TotalText'),
+    s2TotalText: document.getElementById('s2TotalText'),
+    s1Foot: document.getElementById('s1Foot'),
+    s2Foot: document.getElementById('s2Foot'),
+    card1: document.getElementById('card1'),
+    card2: document.getElementById('card2'),
+    capacityLegend: document.getElementById('capacityLegend')
+  };
+
+  const growthButtons = Array.from(document.querySelectorAll('.seg'));
+  let selectedGrowth = 0.05;
+
+  const fmtMoney = (n) => n.toLocaleString(undefined, { style:'currency', currency:'USD', maximumFractionDigits:0 });
+  const fmtNum = (n) => n.toLocaleString(undefined, { maximumFractionDigits:2 });
+
+  function projectedUsage(growth){
+    const arr = [julyBaseProjection];
+    for(let i=1;i<7;i++) arr.push(arr[i-1] * (1 + growth));
+    return arr;
+  }
+
+  function costFor(usage, contract){
+    return contract.included * contract.base + Math.max(0, usage - contract.included) * contract.eod;
+  }
+
+  function buildMetrics(growth){
+    const projected = projectedUsage(growth);
+    const total1 = projected.reduce((sum, u) => sum + costFor(u, currentContract), 0);
+    const total2 = projected.reduce((sum, u) => sum + costFor(u, proposedContract), 0);
+    const savings = total1 - total2;
+    const janUsage = projected[6];
+
+    els.projJulyText.textContent = '~' + Math.round(projected[0]) + ' dynos';
+    els.s1TotalText.textContent = fmtMoney(total1);
+    els.s2TotalText.textContent = fmtMoney(total2);
+    els.s1Foot.textContent = 'By January, projected usage reaches ' + Math.round(janUsage) + ' dynos under the current contract.';
+    els.s2Foot.textContent = 'Savings come from both the lower base rate and the lower overage rate through the renewal.';
+
+    const cards = [
+      { label:'Projected July usage', val: Math.round(projected[0]), note:'dynos' },
+      { label:'Projected January usage', val: Math.round(janUsage), note:'dynos' },
+      { label:'Scenario 1 Jul-Jan spend', val: fmtMoney(total1), note:'Current contract' },
+      { label:'Savings with proposal', val: fmtMoney(savings), note:'Jul-Jan' }
+    ];
+
+    els.metrics.innerHTML = cards.map((c, i) => `
+      <div class="metric ${i === 3 ? 'accent' : ''}">
+        <div class="label">${c.label}</div>
+        <div class="val">${c.val}</div>
+        <div class="note">${c.note}</div>
+      </div>
+    `).join('');
+
+    return { projected, total1, total2, savings };
+  }
+
+  function yTicks(min, max){
+    const ticks = [];
+    const step = 25;
+    for(let v = Math.ceil(min / step) * step; v <= max; v += step) ticks.push(v);
+    return ticks;
+  }
+
+  function starPath(cx, cy, r, fill){
+    const spikes = 5;
+    const outerRadius = r;
+    const innerRadius = r * 0.45;
+    let rot = Math.PI / 2 * 3;
+    let path = '';
+    path += `M ${cx} ${cy - outerRadius}`;
+    for (let i = 0; i < spikes; i++) {
+      let x = cx + Math.cos(rot) * outerRadius;
+      let y = cy + Math.sin(rot) * outerRadius;
+      path += ` L ${x} ${y}`;
+      rot += Math.PI / spikes;
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      path += ` L ${x} ${y}`;
+      rot += Math.PI / spikes;
+    }
+    path += ' Z';
+    return `<path d="${path}" fill="${fill}"/>`;
+  }
+
+  function getPoint(margin, width, height, yMin, yMax, xIndex, xCount, value){
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const x = margin.left + (xCount === 1 ? plotW / 2 : (xIndex / (xCount - 1)) * plotW);
+    const y = margin.top + plotH - ((value - yMin) / (yMax - yMin)) * plotH;
+    return [x, y];
+  }
+
+  function wireTooltip(svg, box, tipEl, selector){
+    svg.querySelectorAll(selector).forEach((el) => {
+      el.addEventListener('mousemove', (e) => {
+        tipEl.innerHTML = el.getAttribute('data-tip');
+        tipEl.style.left = e.offsetX + 'px';
+        tipEl.style.top = e.offsetY + 'px';
+        tipEl.classList.add('show');
+      });
+      el.addEventListener('mouseenter', (e) => {
+        tipEl.innerHTML = el.getAttribute('data-tip');
+        tipEl.style.left = e.offsetX + 'px';
+        tipEl.style.top = e.offsetY + 'px';
+        tipEl.classList.add('show');
+      });
+      el.addEventListener('mouseleave', () => tipEl.classList.remove('show'));
+    });
+    box.addEventListener('mouseleave', () => tipEl.classList.remove('show'));
+  }
+
+  function drawHistoryChart(projected){
+    const svg = els.historyChart;
+    const width = 760, height = 360;
+    const margin = { top: 28, right: 24, bottom: 56, left: 104 };
+    const yMin = 100, yMax = 260;
+    const yLabelX = 18;
+
+    const actualPoints = [
+      { month:'Feb', value:118.24 },
+      { month:'Mar', value:128.73 },
+      { month:'Apr', value:132.07 },
+      { month:'May', value:133.01 },
+      { month:'Jun', value:159.38 },
+      { month:'Jul*', value:julyMTD }
+    ];
+    const projPoints = [
+      { month:'Jul', value:projected[0] },
+      { month:'Aug', value:projected[1] },
+      { month:'Sep', value:projected[2] },
+      { month:'Oct', value:projected[3] },
+      { month:'Nov', value:projected[4] },
+      { month:'Dec', value:projected[5] },
+      { month:'Jan', value:projected[6] }
+    ];
+    const monthOrder = ['Feb','Mar','Apr','May','Jun','Jul*','Jul','Aug','Sep','Oct','Nov','Dec','Jan'];
+    const idxOf = (label) => monthOrder.indexOf(label);
+    const pointXY = (label, value) => getPoint(margin, width, height, yMin, yMax, idxOf(label), monthOrder.length, value);
+
+    const actualPolyline = actualPoints.map((d) => pointXY(d.month, d.value).join(',')).join(' ');
+    const projPolyline = projPoints.map((d) => pointXY(d.month, d.value).join(',')).join(' ');
+
+    let html = '';
+    html += `<rect x="0" y="0" width="760" height="360" rx="20" fill="#fff"/>`;
+
+    yTicks(yMin, yMax).forEach((t) => {
+      const p = pointXY('Feb', t);
+      html += `<line x1="${margin.left}" y1="${p[1]}" x2="${width - margin.right}" y2="${p[1]}" stroke="#ececec" stroke-width="1"/>`;
+      html += `<text x="${margin.left - 14}" y="${p[1] + 4}" text-anchor="end" font-size="12" fill="#666">${t}</text>`;
+    });
+
+    html += `<line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" stroke="#111" stroke-width="1.2"/>`;
+    html += `<line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" stroke="#111" stroke-width="1.2"/>`;
+    html += `<text x="${yLabelX}" y="${height / 2}" transform="rotate(-90 ${yLabelX} ${height / 2})" text-anchor="middle" font-size="14" font-weight="900" fill="#444">Dynos</text>`;
+
+    html += `<polyline fill="none" stroke="#111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" points="${actualPolyline}"/>`;
+    html += `<polyline fill="none" stroke="var(--yellow)" stroke-width="3.5" stroke-dasharray="7 6" stroke-linecap="round" stroke-linejoin="round" points="${projPolyline}"/>`;
+
+    const julStar = pointXY('Jul*', julyMTD);
+    const projectedJul = pointXY('Jul', projected[0]);
+    html += `<line x1="${julStar[0] + 10}" y1="${julStar[1] - 8}" x2="${projectedJul[0] - 10}" y2="${projectedJul[1] - 10}" stroke="var(--yellow)" stroke-width="1.6" stroke-dasharray="5 5"/>`;
+    html += `<rect x="${julStar[0] - 34}" y="${julStar[1] - 58}" rx="8" ry="8" width="80" height="38" fill="#fff" stroke="#111"/>`;
+    html += `<text x="${julStar[0] + 6}" y="${julStar[1] - 42}" text-anchor="middle" font-size="12" font-weight="900" fill="#111">Projected</text>`;
+    html += `<text x="${julStar[0] + 6}" y="${julStar[1] - 26}" text-anchor="middle" font-size="12" font-weight="900" fill="#111">July: ${Math.round(projected[0])}</text>`;
+
+    actualPoints.forEach((d) => {
+      const [x,y] = pointXY(d.month, d.value);
+      if(d.month === 'Jul*'){
+        html += starPath(x, y, 7, 'var(--yellow)');
+        html += `<text x="${x}" y="${y - 12}" text-anchor="middle" font-size="13" font-weight="900" fill="#111">${fmtNum(d.value)}</text>`;
+      } else {
+        html += `<circle cx="${x}" cy="${y}" r="4.2" fill="#111"/>`;
+        html += `<text x="${x}" y="${y - 10}" text-anchor="middle" font-size="13" font-weight="800" fill="#111">${Math.round(d.value)}</text>`;
+      }
+    });
+
+    projPoints.forEach((d) => {
+      const [x,y] = pointXY(d.month, d.value);
+      html += `<circle cx="${x}" cy="${y}" r="3.8" fill="var(--yellow)" stroke="#111" stroke-width="1"/>`;
+      html += `<text x="${x}" y="${y - 10}" text-anchor="middle" font-size="13" font-weight="800" fill="#111">${Math.round(d.value)}</text>`;
+    });
+
+    const labels = ['Feb','Mar','Apr','May','Jun','Jul*','Aug','Sep','Oct','Nov','Dec','Jan'];
+    labels.forEach((m) => {
+      const idx = monthOrder.indexOf(m);
+      const x = margin.left + (idx / (monthOrder.length - 1)) * (width - margin.left - margin.right);
+      html += `<text x="${x}" y="${height - 16}" text-anchor="middle" font-size="12" fill="#555">${m}</text>`;
+    });
+
+    const actualPointsForTips = actualPoints.map((d) => {
+      const [x,y] = pointXY(d.month, d.value);
+      const tip = d.month === 'Jul*' ? 'Jul* (MTD through Jul 19): ' + fmtNum(d.value) + ' dynos' : d.month + ': ' + fmtNum(d.value) + ' dynos';
+      return `<circle class="hit-history" data-tip="${tip}" cx="${x}" cy="${y}" r="12" fill="transparent" stroke="transparent"/>`;
+    }).join('');
+    const projectedTips = projPoints.map((d, i) => {
+      const [x,y] = pointXY(d.month, d.value);
+      return `<circle class="hit-history" data-tip="${labels[i + 6]} projected: ${fmtNum(d.value)} dynos" cx="${x}" cy="${y}" r="12" fill="transparent" stroke="transparent"/>`;
+    }).join('');
+
+    html += actualPointsForTips + projectedTips;
+    svg.innerHTML = html;
+    wireTooltip(svg, els.historyBox, els.historyTip, '.hit-history');
+  }
+
+  function drawCapacityChart(projected){
+    const svg = els.capacityChart;
+    const width = 760, height = 360;
+    const margin = { top: 28, right: 70, bottom: 56, left: 104 };
+    const yMin = 80, yMax = 260;
+    const yLabelX = 18;
+    const tickYs = [100, 125, 150, 175, 200, 225, 250];
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xCount = monthLabels.length;
+    const xAt = (i) => margin.left + (i / (xCount - 1)) * plotW;
+    const yAt = (v) => margin.top + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+    let html = `<rect x="0" y="0" width="760" height="360" rx="20" fill="#fff"/>`;
+    tickYs.forEach((t) => {
+      const y = yAt(t);
+      html += `<line x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" stroke="#ececec" stroke-width="1"/>`;
+      html += `<text x="${margin.left - 14}" y="${y + 4}" text-anchor="end" font-size="12" fill="#666">${t}</text>`;
+    });
+    html += `<line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" stroke="#111" stroke-width="1.2"/>`;
+    html += `<line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" stroke="#111" stroke-width="1.2"/>`;
+    html += `<text x="${yLabelX}" y="${height / 2}" transform="rotate(-90 ${yLabelX} ${height / 2})" text-anchor="middle" font-size="14" font-weight="900" fill="#444">Dynos</text>`;
+
+    // zones
+    html += `<rect x="${margin.left}" y="${yAt(100)}" width="${plotW}" height="${yAt(80) - yAt(100)}" fill="#f2f2f2" opacity="0.65"/>`;
+    html += `<rect x="${margin.left}" y="${yAt(160)}" width="${plotW}" height="${yAt(100) - yAt(160)}" fill="var(--yellow2)" opacity="0.55"/>`;
+    html += `<line x1="${margin.left}" y1="${yAt(100)}" x2="${width - margin.right}" y2="${yAt(100)}" stroke="#6b7280" stroke-width="2" stroke-dasharray="7 6"/>`;
+    html += `<line x1="${margin.left}" y1="${yAt(160)}" x2="${width - margin.right}" y2="${yAt(160)}" stroke="#111" stroke-width="2" stroke-dasharray="7 6"/>`;
+
+    const points = projected.map((v, i) => [xAt(i), yAt(v)]);
+    html += `<polyline fill="none" stroke="#111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" points="${points.map(p => p.join(',')).join(' ')}"/>`;
+    points.forEach((p, i) => {
+      html += `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--yellow)" stroke="#111" stroke-width="1"/>`;
+      html += `<text x="${p[0]}" y="${p[1] - 10}" text-anchor="middle" font-size="13" font-weight="800" fill="#111">${Math.round(projected[i])}</text>`;
+    });
+    monthLabels.forEach((m, i) => {
+      html += `<text x="${xAt(i)}" y="${height - 16}" text-anchor="middle" font-size="12" fill="#555">${m}</text>`;
+    });
+
+    html += `<text x="${margin.left + 305}" y="${yAt(100) + 34}" text-anchor="middle" font-size="12" font-weight="900" fill="#555">Current included (100)</text>`;
+    html += `<text x="${margin.left + 425}" y="${yAt(160) - 10}" text-anchor="middle" font-size="12" font-weight="900" fill="#111">Proposed included (160)</text>`;
+    html += `<text x="${margin.left + 548}" y="${yAt(100) + 34}" text-anchor="middle" font-size="12" font-weight="900" fill="#111">Potential overage zone</text>`;
+
+    const rightX = width - 52;
+    html += `<rect x="${rightX - 72}" y="${yAt(160) - 20}" width="72" height="38" rx="8" fill="#111"/>`;
+    html += `<text x="${rightX - 36}" y="${yAt(160) + 3}" text-anchor="middle" font-size="12" font-weight="900" fill="#fff">Proposed</text>`;
+    html += `<text x="${rightX - 36}" y="${yAt(160) + 16}" text-anchor="middle" font-size="12" font-weight="900" fill="#fff">160 Dynos</text>`;
+    html += `<rect x="${rightX - 72}" y="${yAt(100) - 20}" width="72" height="38" rx="8" fill="#555"/>`;
+    html += `<text x="${rightX - 36}" y="${yAt(100) + 3}" text-anchor="middle" font-size="12" font-weight="900" fill="#fff">Current</text>`;
+    html += `<text x="${rightX - 36}" y="${yAt(100) + 16}" text-anchor="middle" font-size="12" font-weight="900" fill="#fff">100 Dynos</text>`;
+
+    const tips = points.map((p, i) => `<circle class="hit-capacity" data-tip="${monthLabels[i]} projected: ${fmtNum(projected[i])} dynos" cx="${p[0]}" cy="${p[1]}" r="12" fill="transparent" stroke="transparent"/>`).join('');
+    html += tips;
+
+    svg.innerHTML = html;
+    wireTooltip(svg, els.capacityBox, els.capacityTip, '.hit-capacity');
+  }
+
+  function buildLegend(){
+    els.capacityLegend.innerHTML = `
+      <span><span class="dot" style="background:#111"></span>Projected dynos</span>
+      <span><span class="dot line" style="background:#111"></span>Current included (100)</span>
+      <span><span class="dot line" style="background:var(--yellow)"></span>Proposed included (160)</span>
+    `;
+  }
+
+  function buildCostTable(projected){
+    const rows = [
+      { name:'Current Contract', contract: currentContract, klass:'s1txt' },
+      { name:'Proposed Contract', contract: proposedContract, klass:'s2txt' },
+      { name:'Monthly Savings', contract: null, klass:'savtxt' }
+    ];
+
+    const bodyRows = rows.map((row) => {
+      if(row.name === 'Monthly Savings'){
+        const vals = projected.map((u) => costFor(u, currentContract) - costFor(u, proposedContract));
+        const total = vals.reduce((a,b) => a + b, 0);
+        return `<tr class="total"><td>${row.name}</td>${vals.map(v => `<td class="${row.klass}">${fmtMoney(Math.round(v))}</td>`).join('')}<td class="${row.klass}">${fmtMoney(Math.round(total))}</td></tr>`;
+      }
+      const vals = projected.map((u) => costFor(u, row.contract));
+      const total = vals.reduce((a,b) => a + b, 0);
+      return `<tr><td>${row.name}<div class="subtle" style="font-weight:700;font-size:12px;margin-top:2px">${row.name === 'Current Contract' ? '100 dynos @ $19.75' : '160 dynos @ $18.75'}<br>${row.name === 'Current Contract' ? 'EOD @ $23.70' : 'EOD @ $22.50'}</div></td>${vals.map(v => `<td class="${row.klass}">${fmtMoney(Math.round(v))}</td>`).join('')}<td class="${row.klass}">${fmtMoney(Math.round(total))}</td></tr>`;
+    }).join('');
+    els.costTableBody.innerHTML = bodyRows;
+  }
+
+  function updateScenarioCards(growthData){
+    const savings = growthData.savings;
+    const jan = growthData.projected[6];
+    els.card1.querySelector('.scenario-foot').textContent = 'By January, projected usage reaches ' + Math.round(jan) + ' dynos under the current contract.';
+    els.card2.querySelector('.scenario-foot').textContent = 'Projected savings versus staying as-is: ' + fmtMoney(Math.round(savings)) + ' through the renewal.';
+  }
+
+  function redraw(){
+    const growthData = buildMetrics(selectedGrowth);
+    drawHistoryChart(growthData.projected);
+    drawCapacityChart(growthData.projected);
+    buildLegend();
+    buildCostTable(growthData.projected);
+    updateScenarioCards(growthData);
+  }
+
+  growthButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      growthButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedGrowth = parseFloat(btn.dataset.growth);
+      redraw();
+    });
+  });
+
+  redraw();
+})();
+</script>
+</body>
+</html>
